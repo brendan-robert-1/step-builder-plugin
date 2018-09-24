@@ -1,0 +1,21 @@
+<idea-plugin>
+    <id>com.brobert.step-builder-plugin</id>
+    <name>Step Builder</name>
+    <vendor email="brendan.robert50point@gmail.com">brobert-personal</vendor>
+
+    <description><![CDATA[
+    Enter short description for your plugin here.<br>
+    <em>most HTML tags may be used</em>
+    ]]></description>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- Add your extensions here -->
+    </extensions>
+
+    <actions>
+
+        <action id="com.brobert.HelloAction" class="com.brobert.HelloAction" text="Step Builder" description="Implements step builder for targeted class">
+            <add-to-group group-id="GenerateGroup" anchor="last"/>
+        </action>
+    </actions>
+</idea-plugin>
