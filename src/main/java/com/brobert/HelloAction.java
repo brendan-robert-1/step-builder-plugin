@@ -88,8 +88,8 @@ public class HelloAction extends AnAction {
 
     private void addBuilderFactory(Project project, PsiClass currentClass, PsiType builderType) {
         PsiMethod method = javaElFactory.createMethod("getBuilder", builderType);
-        method.getModifierList().setModifierProperty("");
-
+        method.getModifierList().setModifierProperty("public", true);
+        method.getModifierList().setModifierProperty("static", true);
 
     }
 
