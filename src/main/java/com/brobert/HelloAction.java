@@ -7,6 +7,7 @@ import com.intellij.psi.*;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedList;
 import java.util.List;
 
 public class HelloAction extends AnAction {
@@ -18,17 +19,18 @@ public class HelloAction extends AnAction {
 
 
     private PsiElementFactory javaElFactory;
+    private Project project;
 
 
 
     public void actionPerformed(AnActionEvent event) {
-        Project project = event.getProject();
+        project = event.getProject();
         javaElFactory = JavaPsiFacade.getElementFactory(project);
         PsiJavaFile psiFile = (PsiJavaFile) event.getData(CommonDataKeys.PSI_FILE);
         PsiClass currentClass = psiFile.getClasses()[0];
-        addPrivateConstructorIfNeccesary(project, currentClass);
-        PsiType builderType = addBuilderClassIfNecessary(project, currentClass);
-        addBuilderFactoryIfNecessary(project, currentClass, builderType);
+        addPrivateConstructorIfNeccesary( currentClass);
+        PsiType builderType = addBuilderClassIfNecessary( currentClass);
+        addBuilderFactoryIfNecessary( currentClass, builderType);
     }
 
 
@@ -36,20 +38,19 @@ public class HelloAction extends AnAction {
     /**
      * Checks whether or not a private constructor exists and adds it if so.
      *
-     * @param project
      * @param currentClass
      */
-    private void addPrivateConstructorIfNeccesary(Project project, PsiClass currentClass) {
+    private void addPrivateConstructorIfNeccesary(PsiClass currentClass) {
         PsiMethod[] constructors = currentClass.getConstructors();
         for (PsiMethod constructor : constructors) {
             PsiModifierList modifiers = constructor.getModifierList();
             boolean isPrivate = modifiers.hasExplicitModifier("private");
             if (!isPrivate) {
-                addPrivateConstructor(project, currentClass);
+                addPrivateConstructor( currentClass);
             }
         }
         if (constructors.length == 0) {
-            addPrivateConstructor(project, currentClass);
+            addPrivateConstructor( currentClass);
         }
     }
 
@@ -58,12 +59,28 @@ public class HelloAction extends AnAction {
     /**
      * Adds a private constructor to a class
      *
-     * @param project
      * @param currentClass
      */
-    private void addPrivateConstructor(Project project, PsiClass currentClass) {
+    private void addPrivateConstructor( PsiClass currentClass) {
         PsiMethod method = javaElFactory.createConstructor();
         method.getModifierList().setModifierProperty("private", true);
+        WriteCommandAction.runWriteCommandAction(project, () -> {
+            currentClass.add(method);
+        });
+    }
+
+    /**
+     * Adds a private constructor to a class
+     *
+     * @param currentClass
+     */
+    private void addPrivateConstructor( PsiClass currentClass, PsiType param) {
+        PsiMethod method = javaElFactory.createConstructor();
+        method.getModifierList().setModifierProperty("private", true);
+        PsiParameterList parameters = javaElFactory.createParameterList(new String[]{"b"}, new PsiType[]{param});
+        method.getParameterList().replace(parameters);
+        PsiStatement assignStmt = javaElFactory.createStatementFromText("this.b = b;", method);
+        method.getBody().add(assignStmt);
         WriteCommandAction.runWriteCommandAction(project, () -> {
             currentClass.add(method);
         });
@@ -74,11 +91,10 @@ public class HelloAction extends AnAction {
     /**
      * Adds the entire builder class if it does not already exist.
      *
-     * @param project
      * @param currentClass
      * @return
      */
-    private PsiType addBuilderClassIfNecessary(Project project, PsiClass currentClass) {
+    private PsiType addBuilderClassIfNecessary(PsiClass currentClass) {
         PsiClass builderClass = javaElFactory.createClass("Builder");
         builderClass.getModifierList().setModifierProperty("static", true);
         PsiType builderType = javaElFactory.createType(builderClass);
@@ -86,10 +102,10 @@ public class HelloAction extends AnAction {
         PsiField field = getInstanceField(mainClassType);
         builderClass.add(field);
 
-        addPrivateConstructorIfNeccesary(project, builderClass);
+        addPrivateConstructorIfNeccesary( builderClass);
 
-        List<PsiField> existingFields = getAllFields(currentClass);
-        List<PsiClass> stepClasses = getSteps(existingFields, builderType, javaElFactory.createType(currentClass));
+        LinkedList<PsiField> existingFields = getAllFields(currentClass);
+        LinkedList<PsiClass> stepClasses = getSteps(existingFields, builderType, javaElFactory.createType(currentClass));
         for (PsiClass psiClass : stepClasses) {
             builderClass.add(psiClass);
         }
@@ -152,27 +168,31 @@ public class HelloAction extends AnAction {
      * @param mainClassType
      * @return
      */
-    private List<PsiClass> getSteps(List<PsiField> existingFields, PsiType builderType, PsiType mainClassType) {
-        List<PsiClass> steps = new ArrayList<>();
-        int cur = 1;
+    private LinkedList<PsiClass> getSteps(LinkedList<PsiField> existingFields, PsiType builderType, PsiType mainClassType) {
+        LinkedList<PsiClass> steps = new LinkedList<>();
+        int cur = 0;
         for (PsiField field : existingFields) {
             String stepClassName = StringUtils.getPascalCase(field.getName());
-
             PsiClass stepClass = javaElFactory.createClass(stepClassName);
             stepClass.getModifierList().setModifierProperty("public", true);
             PsiField builder = javaElFactory.createField("b", builderType);
             builder.getModifierList().setModifierProperty("private", true);
+            addPrivateConstructor(stepClass, builderType);
             stepClass.add(builder);
 
-            if (cur++ == existingFields.size()) {
+            if (cur == existingFields.size() - 1) {
                 PsiMethod build = javaElFactory.createMethod("build", mainClassType);
                 PsiStatement psiStatement = javaElFactory.createStatementFromText("return instance;", build);
                 build.getBody().add(psiStatement);
                 stepClass.add(build);
             } else {
-                PsiMethod stepMethod = createStepMethod(field);
+                String nextStepClassName = StringUtils.getPascalCase(existingFields.get(cur + 1).getName());
+                PsiClass nextStopClass = javaElFactory.createClass(nextStepClassName);
+                PsiType nextStepType = javaElFactory.createType(nextStopClass);
+                PsiMethod stepMethod = createStepMethod(field, nextStepType);
                 stepClass.add(stepMethod);
             }
+            cur++;
             steps.add(stepClass);
         }
         return steps;
@@ -180,19 +200,28 @@ public class HelloAction extends AnAction {
 
 
 
-    private PsiMethod createStepMethod(PsiField field) {
-        String methodName = StringUtils.getCamelCase(field.getName());
-        PsiMethod method = javaElFactory.createMethod(methodName, field.getType());
+    private PsiMethod createStepMethod(PsiField field, PsiType nextStepType) {
+        String methodName = StringUtils.getCamelCase(nextStepType.getCanonicalText());
+        PsiMethod method = javaElFactory.createMethod(methodName, nextStepType);
         method.getModifierList().setModifierProperty("public", true);
+
+        PsiParameterList parameter = javaElFactory.createParameterList(new String[]{field.getName()}, new PsiType[]{field.getType()});
+        method.getParameterList().replace(parameter);
+        PsiStatement instantiateStmt = javaElFactory.createStatementFromText(nextStepType.getCanonicalText() + " x = new " + nextStepType.getCanonicalText()  +"(b);", method);
+        PsiStatement varSetStmt = javaElFactory.createStatementFromText("b.instance." + field.getName() + " = " + field.getName() + ";", method);
+        PsiStatement returnStmt = javaElFactory.createStatementFromText("return x;", method);
+        method.getBody().add(instantiateStmt);
+        method.getBody().add(varSetStmt);
+        method.getBody().add(returnStmt);
         return method;
     }
 
 
 
-    private void addBuilderFactoryIfNecessary(Project project, PsiClass currentClass, PsiType builderType) {
+    private void addBuilderFactoryIfNecessary( PsiClass currentClass, PsiType builderType) {
         PsiMethod method = javaElFactory.createMethod("getBuilder", builderType);
         method.getModifierList().setModifierProperty("public", true);
-
+        method.getModifierList().setModifierProperty("static",true);
         PsiStatement statement = javaElFactory.createStatementFromText("return new Builder();", method);
         boolean builderFactoryExists = builderFactoryExists(currentClass);
         if (!builderFactoryExists) {
@@ -220,8 +249,13 @@ public class HelloAction extends AnAction {
 
 
 
-    private List<PsiField> getAllFields(PsiClass currentClass) {
-        return Arrays.asList(currentClass.getAllFields());
+    private LinkedList<PsiField> getAllFields(PsiClass currentClass) {
+        PsiField[] fields = currentClass.getFields();
+        LinkedList<PsiField>fieldList = new LinkedList<>();
+        for(PsiField field : fields){
+            fieldList.add(field);
+        }
+        return fieldList;
     }
 
 }

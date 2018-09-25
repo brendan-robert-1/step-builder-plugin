@@ -28,11 +28,14 @@ public class StringUtils {
             String str = s;
             if(i++ != 0){
                 str = upperFirstChar(s);
+            } else {
+                str = lowerCaseFirstChar(s);
             }
             pascalCase.add(str);
         }
         return pascalCase;
     }
+
 
 
 
@@ -74,6 +77,12 @@ public class StringUtils {
     private static String upperFirstChar(String s) {
         String lower = s.toLowerCase();
         return lower.substring(0, 1).toUpperCase() + lower.substring(1);
+    }
+
+
+    private static String lowerCaseFirstChar(String s) {
+        String lower = s.toLowerCase();
+        return lower.substring(0, 1).toLowerCase() + lower.substring(1);
     }
 
 }
