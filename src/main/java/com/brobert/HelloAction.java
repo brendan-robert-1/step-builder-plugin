@@ -33,6 +33,12 @@ public class HelloAction extends AnAction {
 
 
 
+    /**
+     * Checks whether or not a private constructor exists and adds it if so.
+     *
+     * @param project
+     * @param currentClass
+     */
     private void addPrivateConstructorIfNeccesary(Project project, PsiClass currentClass) {
         PsiMethod[] constructors = currentClass.getConstructors();
         for (PsiMethod constructor : constructors) {
@@ -49,6 +55,12 @@ public class HelloAction extends AnAction {
 
 
 
+    /**
+     * Adds a private constructor to a class
+     *
+     * @param project
+     * @param currentClass
+     */
     private void addPrivateConstructor(Project project, PsiClass currentClass) {
         PsiMethod method = javaElFactory.createConstructor();
         method.getModifierList().setModifierProperty("private", true);
@@ -59,6 +71,13 @@ public class HelloAction extends AnAction {
 
 
 
+    /**
+     * Adds the entire builder class if it does not already exist.
+     *
+     * @param project
+     * @param currentClass
+     * @return
+     */
     private PsiType addBuilderClassIfNecessary(Project project, PsiClass currentClass) {
         PsiClass builderClass = javaElFactory.createClass("Builder");
         builderClass.getModifierList().setModifierProperty("static", true);
@@ -86,6 +105,12 @@ public class HelloAction extends AnAction {
 
 
 
+    /**
+     * Checks whether or not there is already a public static builder class.
+     *
+     * @param currentClass
+     * @return
+     */
     private boolean builderClassExists(PsiClass currentClass) {
         boolean builderClassExists = false;
         PsiClass[] subClasses = currentClass.getInnerClasses();
@@ -103,6 +128,12 @@ public class HelloAction extends AnAction {
 
 
 
+    /**
+     * Builds an private static instance field for a given type. Initializes it with an empty constructor as well.
+     *
+     * @param type
+     * @return
+     */
     private PsiField getInstanceField(PsiType type) {
         PsiField field = javaElFactory.createField("instance", type);
         field.getModifierList().setModifierProperty("private", true);
@@ -114,6 +145,13 @@ public class HelloAction extends AnAction {
 
 
 
+    /**
+     * Builds a list of the inner classes to builder. These classes represent a 'step' in the builder.
+     * @param existingFields
+     * @param builderType
+     * @param mainClassType
+     * @return
+     */
     private List<PsiClass> getSteps(List<PsiField> existingFields, PsiType builderType, PsiType mainClassType) {
         List<PsiClass> steps = new ArrayList<>();
         int cur = 1;
