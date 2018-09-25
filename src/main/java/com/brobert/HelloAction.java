@@ -28,20 +28,8 @@ public class HelloAction extends AnAction {
         PsiClass currentClass = psiFile.getClasses()[0];
         List<StepBuilderTask> tasks = getTasks(currentClass);
         addPrivateConstructorIfNeccesary(project, currentClass);
-        PsiType builderType = addBuilderClass(project, currentClass);
-        addBuilderFactory(project, currentClass, builderType);
-
-/*
-        for (StepBuilderTask task : tasks) {
-            PsiMethod method = JavaPsiFacade.getElementFactory(project).createMethod("hello", PsiType.BOOLEAN);
-            PsiClass anon = JavaPsiFacade.getElementFactory(project).createClass(task.anonClassName);
-            WriteCommandAction.runWriteCommandAction(project, () -> {
-                anon.add(method);
-                currentClass.add(anon);
-            });
-        }
-*/
-
+        PsiType builderType = addBuilderClassIfNecessary(project, currentClass);
+        addBuilderFactoryIfNecessary(project, currentClass, builderType);
     }
 
 
@@ -72,25 +60,69 @@ public class HelloAction extends AnAction {
 
 
 
-    private PsiType addBuilderClass(Project project, PsiClass currentClass) {
+    private PsiType addBuilderClassIfNecessary(Project project, PsiClass currentClass) {
         PsiClass builderClass = javaElFactory.createClass("Builder");
-        PsiType type = javaElFactory.createType(currentClass);
+        builderClass.getModifierList().setModifierProperty("static", true);
+        PsiType type = javaElFactory.createType(builderClass);
         PsiField field = javaElFactory.createField("instance", type);
         field.getModifierList().setModifierProperty("private", true);
-        WriteCommandAction.runWriteCommandAction(project, () -> {
-            builderClass.add(field);
-            currentClass.add(builderClass);
-        });
+        field.getModifierList().setModifierProperty("static", true);
+        boolean builderClassExists = builderClassExists(currentClass);
+        if(!builderClassExists){
+            WriteCommandAction.runWriteCommandAction(project, () -> {
+                builderClass.add(field);
+                currentClass.add(builderClass);
+            });
+        }
         return type;
     }
 
 
 
-    private void addBuilderFactory(Project project, PsiClass currentClass, PsiType builderType) {
+    private boolean builderClassExists(PsiClass currentClass) {
+        boolean builderClassExists = false;
+        PsiClass[] subClasses = currentClass.getInnerClasses();
+        for (PsiClass subClass : subClasses) {
+            boolean isPublic = subClass.getModifierList().hasModifierProperty("public");
+            boolean isBuilder = subClass.getName().equals("Builder");
+            boolean isStatic = subClass.getModifierList().hasModifierProperty("static");
+            builderClassExists = isPublic && isBuilder && isStatic;
+            if(builderClassExists == true){
+                break;
+            }
+        }
+        return builderClassExists;
+    }
+
+
+
+    private void addBuilderFactoryIfNecessary(Project project, PsiClass currentClass, PsiType builderType) {
         PsiMethod method = javaElFactory.createMethod("getBuilder", builderType);
         method.getModifierList().setModifierProperty("public", true);
-        method.getModifierList().setModifierProperty("static", true);
 
+        PsiStatement statement = javaElFactory.createStatementFromText("return new Builder();", method);
+        boolean builderFactoryExists = builderFactoryExists(currentClass);
+        if(!builderFactoryExists){
+            WriteCommandAction.runWriteCommandAction(project, () -> {
+                method.getBody().add(statement);
+                currentClass.add(method);
+            });
+        }
+    }
+
+
+
+    private boolean builderFactoryExists(PsiClass currentClass) {
+        boolean builderFactoryExists = false;
+        for(PsiMethod method : currentClass.getAllMethods()){
+            boolean isPublic = method.getModifierList().hasModifierProperty("public");
+            boolean isGetBuilder = method.getName().equals("getBuilder");
+            builderFactoryExists = isPublic && isGetBuilder;
+            if(builderFactoryExists){
+                break;
+            }
+        }
+        return builderFactoryExists;
     }
 
 
