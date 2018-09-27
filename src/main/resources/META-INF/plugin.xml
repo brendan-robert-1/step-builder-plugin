@@ -4,8 +4,7 @@
     <vendor email="brendan.robert50point@gmail.com">brobert-personal</vendor>
 
     <description><![CDATA[
-    Enter short description for your plugin here.<br>
-    <em>most HTML tags may be used</em>
+  Step builder generator plugin
     ]]></description>
 
     <extensions defaultExtensionNs="com.intellij">
