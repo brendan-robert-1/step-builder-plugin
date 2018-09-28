@@ -13,7 +13,7 @@
 
     <actions>
 
-        <action id="com.brobert.HelloAction" class="com.brobert.HelloAction" text="Step Builder" description="Implements step builder for targeted class">
+        <action id="com.brobert.StepBuilderAction" class="com.brobert.StepBuilderAction" text="Step Builder" description="Implements step builder for targeted class">
             <add-to-group group-id="GenerateGroup" anchor="last"/>
         </action>
     </actions>
